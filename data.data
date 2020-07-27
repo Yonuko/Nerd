@@ -1,0 +1,10 @@
+test = 1;
+
+result = 24 / test;
+result = 12 + test;
+result += 4;
+result--;
+result /= 2;
+result *= 3;
+result -= 12;
+result += 15;

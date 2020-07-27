@@ -1,0 +1,103 @@
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+action code
+{:
+    Hashtable table = new Hashtable();
+
+    Integer getVariableValue(String varname){
+        Integer value = (Integer)table.get(varname);
+        if ( value == null ) {
+            parser.report_error( "Undeclared Identifier " + varname,
+            new Symbol( sym.ID, 0, 0 ) );
+            value = new Integer( 0 );
+        }
+        return value;
+    }
+
+    void setVariableValue(String varname, Integer value){
+        table.put(varname, value);
+    }
+:};
+
+parser code {:
+//public Lexer lex;
+:}
+terminal LPAR, RPAR, PLUS, MOINS, MULT, ASSIGN, SEMI, DIV, NEWLINE;
+terminal Integer INT;
+terminal Float FLOAT;
+terminal String ID;
+non terminal Integer term_form, increment;
+non terminal String res;
+non terminal expression, affect, StmtList;
+
+precedence left PLUS;
+precedence left MULT;
+precedence left ASSIGN;
+precedence left MOINS;
+precedence left DIV;
+
+start with StmtList;
+
+StmtList ::= 
+| StmtList expression SEMI
+;
+
+expression ::= res:r {: System.out.println(r); :}
+| affect:a {: System.out.println(a); :}
+| NEWLINE
+;
+
+// Affectation
+affect ::=  ID:id ASSIGN res:r {:
+                            RESULT =  id + "=" + r;
+                            setVariableValue(id, new Integer(Integer.parseInt(r)));
+                        :}
+| ID:id PLUS PLUS {: 
+                        Integer value = getVariableValue(id) + 1;
+                        RESULT = value;
+                        setVariableValue(id, value); 
+                    :}
+| ID:id MOINS MOINS {: 
+                        Integer value = getVariableValue(id) - 1;
+                        RESULT = value;
+                        setVariableValue(id, value);
+                    :}
+| ID:id PLUS ASSIGN res:r {: 
+                                Integer value = getVariableValue(id) + Integer.parseInt(r);
+                                RESULT = value;
+                                setVariableValue(id, value);
+                            :}
+| ID:id MOINS ASSIGN res:r {: 
+                                Integer value = getVariableValue(id) - Integer.parseInt(r);
+                                RESULT = value;
+                                setVariableValue(id, value);
+                            :}
+| ID:id MULT ASSIGN res:r {: 
+                                Integer value = getVariableValue(id) * Integer.parseInt(r);
+                                RESULT = value;
+                                setVariableValue(id, value);
+                            :}
+| ID:id DIV ASSIGN res:r {: 
+                            Integer value = getVariableValue(id) / Integer.parseInt(r);
+                            RESULT = value;
+                            setVariableValue(id, value);
+                        :}
+;
+
+// Calcul Int
+res ::= term_form:t {: RESULT = t.toString(); :}
+;
+
+// Calcul Int
+term_form ::=
+term_form:t1 PLUS term_form:t2 {: RESULT = t1+t2; :}
+| term_form:t1 MULT term_form:t2 {: RESULT = t1*t2; :}
+| term_form:t1 MOINS term_form:t2 {: RESULT = t1-t2; :}
+| term_form:t1 DIV term_form:t2 {: RESULT = t1/t2; :}
+| MOINS term_form:t1 {: RESULT = -t1; :}
+| LPAR term_form:t RPAR {: RESULT = t; :}
+| ID:id {: RESULT = getVariableValue(id); :}
+| INT:nb {: RESULT = nb; :}
+;

@@ -40,16 +40,18 @@ import java_cup.runtime.ComplexSymbolFactory.Location;
     }
 %}
 
-new_line = \r|\n|\r\n;
+new_line = \r|\n|\r\n
 white_space = {new_line} | [ \t\f]
 NUMBER = [0-9]+
 FLOAT = [0-9]*\.[0-9]+
+STRING = \"[^\"]*\"
 VAR = [a-zA-Z_$](([a-zA-Z0-9]*)|([\_\-\$]*))
 
 %%
 
 {white_space}   { }
 {new_line}      { return symbol("line_break", LINEBREAK); }
+print           { return symbol("print", PRINT); }
 
 {NUMBER}        { return symbol(yytext(), INT, new Integer(Integer.parseInt(yytext()))); }
 {FLOAT}         { return symbol(yytext(), FLOAT, Float.parseFloat(yytext())); }
@@ -63,5 +65,6 @@ VAR = [a-zA-Z_$](([a-zA-Z0-9]*)|([\_\-\$]*))
 \*              { return symbol("*",MULT); }
 \/              { return symbol("/", DIV); }
 ;               { return symbol(";", SEMI); }
+{STRING}        { return symbol(yytext(), STRING, yytext().substring(1, yylength()-1)); }
 <<EOF>>         { return symbol("EOF", EOF); }
 [^]             {}

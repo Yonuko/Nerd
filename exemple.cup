@@ -24,13 +24,13 @@ action code
 parser code {:
 //public Lexer lex;
 :}
-terminal LPAR, RPAR, PLUS, MOINS, MULT, ASSIGN, SEMI, DIV, NEWLINE;
+terminal LPAR, RPAR, PLUS, MOINS, MULT, ASSIGN, SEMI, DIV, NEWLINE, PRINT;
 terminal Integer INT;
 terminal Float FLOAT;
-terminal String ID;
+terminal String ID, STRING;
 non terminal Integer term_form, increment;
-non terminal String res;
-non terminal expression, affect, StmtList;
+non terminal String res, String;
+non terminal expression, affect, StmtList, print;
 
 precedence left PLUS;
 precedence left MULT;
@@ -44,9 +44,21 @@ StmtList ::=
 | StmtList expression SEMI
 ;
 
-expression ::= res:r {: System.out.println(r); :}
-| affect:a {: System.out.println(a); :}
+expression ::= res:r {: System.out.println("DEBUG : " + r); :}
+| affect:a {: System.out.println("DEBUG : " + a); :}
+| print:p {: System.out.print(p); :}
 | NEWLINE
+;
+
+//print
+print ::= PRINT LPAR String:s RPAR {: RESULT = s; :}
+;
+
+// String
+String ::= String:s1 PLUS String:s2 {: RESULT = s1 + s2; :}
+| String:s PLUS ID:id {: RESULT = s + getVariableValue(id); :}
+| STRING:s {: RESULT = s; :}
+| {: RESULT = ""; :}
 ;
 
 // Affectation

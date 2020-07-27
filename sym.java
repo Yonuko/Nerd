@@ -6,20 +6,22 @@
 /** CUP generated interface containing symbol constants. */
 public interface sym {
   /* terminals */
-  public static final int INT = 11;
+  public static final int INT = 12;
   public static final int MULT = 6;
   public static final int SEMI = 8;
   public static final int LPAR = 2;
+  public static final int STRING = 15;
   public static final int EOF = 0;
   public static final int PLUS = 4;
-  public static final int ID = 13;
+  public static final int ID = 14;
   public static final int DIV = 9;
   public static final int ASSIGN = 7;
   public static final int error = 1;
+  public static final int PRINT = 11;
   public static final int RPAR = 3;
   public static final int MOINS = 5;
   public static final int NEWLINE = 10;
-  public static final int FLOAT = 12;
+  public static final int FLOAT = 13;
   public static final String[] terminalNames = new String[] {
   "EOF",
   "error",
@@ -32,9 +34,11 @@ public interface sym {
   "SEMI",
   "DIV",
   "NEWLINE",
+  "PRINT",
   "INT",
   "FLOAT",
-  "ID"
+  "ID",
+  "STRING"
   };
 }
 

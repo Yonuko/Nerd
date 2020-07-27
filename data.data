@@ -8,3 +8,5 @@ result /= 2;
 result *= 3;
 result -= 12;
 result += 15;
+
+print("result = " + result + ", test = " + test);

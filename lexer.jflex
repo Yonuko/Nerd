@@ -40,18 +40,38 @@ import java_cup.runtime.ComplexSymbolFactory.Location;
     }
 %}
 
+%eofval{
+     return symbolFactory.newSymbol("EOF", EOF, new Location(yyline+1,yycolumn+1,yychar), new Location(yyline+1,yycolumn+1,yychar+1));
+%eofval}
+
 new_line = \r|\n|\r\n
 white_space = {new_line} | [ \t\f]
 NUMBER = [0-9]+
 FLOAT = [0-9]*\.[0-9]+
 STRING = \"[^\"]*\"
 VAR = [a-zA-Z_$](([a-zA-Z0-9]*)|([\_\-\$]*))
+BINOP = \|\||&&
+COMP = >=|<=|>|<
+EQUALITYCOMP = ==|\!=
+TYPE = int|float|string|bool
+BOOL = true|false
 
 %%
 
 {white_space}   { }
 {new_line}      { return symbol("line_break", LINEBREAK); }
 print           { return symbol("print", PRINT); }
+read           { return symbol("read", READ); }
+if              { return symbol("if", IF); }
+else            { return symbol("else", ELSE); }
+while           { return symbol("while", WHILE); }
+{TYPE}          { return symbol(yytext(), TYPE, yytext()); }
+{BOOL}          { return symbol(yytext(), BOOL, yytext()); }
+
+{BINOP}         { return symbol(yytext(), BINOP, yytext()); }
+\!              { return symbol("!", BINOPNEG); }
+{EQUALITYCOMP}  { return symbol(yytext(), EQUALCOMP, yytext()); }
+{COMP}          { return symbol(yytext(), COMP, yytext()); }
 
 {NUMBER}        { return symbol(yytext(), INT, new Integer(Integer.parseInt(yytext()))); }
 {FLOAT}         { return symbol(yytext(), FLOAT, Float.parseFloat(yytext())); }
@@ -59,12 +79,17 @@ print           { return symbol("print", PRINT); }
 
 \(              { return symbol("(", LPAR); }
 \)              { return symbol(")", RPAR); }
+\{              { return symbol("{", LBAR); }
+\}              { return symbol("}", RBAR); }
 =               { return symbol("=",ASSIGN); }
 \+              { return symbol("+",PLUS); }
 -               { return symbol("-",MOINS); }
 \*              { return symbol("*",MULT); }
 \/              { return symbol("/", DIV); }
 ;               { return symbol(";", SEMI); }
-{STRING}        { return symbol(yytext(), STRING, yytext().substring(1, yylength()-1)); }
+
+{STRING}        { return symbol(yytext(), STRING, yytext().substring(1, yylength() - 1)); }
+
+
 <<EOF>>         { return symbol("EOF", EOF); }
-[^]             {}
+[^]             { error("Illegal argument <" + yytext() + ">"); }

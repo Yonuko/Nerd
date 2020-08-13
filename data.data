@@ -1,12 +1,17 @@
-test = 1;
+int test = 4-2 * 4;
+if((test == 9 && test < 10) || test != 12){
+    print("Valeur de test : " + test);
+    print("Petit test");
+}else{
+    print("On est dans le else");
+}
 
-result = 24 / test;
-result = 12 + test;
-result += 4;
-result--;
-result /= 2;
-result *= 3;
-result -= 12;
-result += 15;
+int i = read("Entrer votre âge : ");
+int j = 0;
 
-print("result = " + result + ", test = " + test);
+while(j < 10){
+    j++;
+    i++;
+}
+
+print("Dans 10 ans, tu auras " + i + " ans");

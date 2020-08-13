@@ -1,115 +1,250 @@
-import java_cup.runtime.*;
 import java.util.*;
+import java_cup.runtime.ComplexSymbolFactory;
+import java_cup.runtime.ScannerBuffer;
+import java_cup.runtime.XMLElement;
+import java_cup.runtime.*;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamWriter;
 import java.io.*;
+
+import java.io.FileWriter;   // Import the FileWriter class
+import java.io.IOException;  // Import the IOException class to handle errors
+
+import javax.xml.transform.*;
+import javax.xml.transform.stream.*;
 
 action code
 {:
-    Hashtable table = new Hashtable();
 
-    Integer getVariableValue(String varname){
-        Integer value = (Integer)table.get(varname);
-        if ( value == null ) {
-            parser.report_error( "Undeclared Identifier " + varname,
-            new Symbol( sym.ID, 0, 0 ) );
-            value = new Integer( 0 );
+    FileWriter expressionFile;
+    BufferedWriter exprOut;
+
+    void Write(String parsedText){
+        if(expressionFile == null || exprOut == null){
+            try {
+                expressionFile = new FileWriter("parsedTree.json");
+                exprOut = new BufferedWriter(expressionFile);
+            } catch (IOException e) {
+                System.out.println("An error occurred.");
+                e.printStackTrace();
+            }
         }
-        return value;
-    }
-
-    void setVariableValue(String varname, Integer value){
-        table.put(varname, value);
+        try{
+            exprOut.write(parsedText);
+            exprOut.close();
+            exprOut = null;
+        }catch (IOException e){
+            System.out.println("An error as occured");
+            e.printStackTrace();
+        }
     }
 :};
 
 parser code {:
-//public Lexer lex;
-:}
-terminal LPAR, RPAR, PLUS, MOINS, MULT, ASSIGN, SEMI, DIV, NEWLINE, PRINT;
+  public Parser(Lexer lex, ComplexSymbolFactory sf) {
+    super(lex,sf);
+  }
+
+  private static Optional<String> getExtension(String filename) {
+    return Optional.ofNullable(filename)
+      .filter(f -> f.contains("."))
+      .map(f -> f.substring(filename.lastIndexOf(".") + 1));
+  }
+
+  public static void main(String[] args) throws Exception {
+    if(args.length == 0){
+        System.out.println("Usage : Compiler <source file>");
+        return;
+    }else{
+        for(String file : args){
+            if(!getExtension(file).get().equals("data")){
+                System.out.println(getExtension(file).get());
+                System.out.println("L'extension des fichier nerd est .data");
+                return;
+            }
+        }
+    }
+    String parseTreeFileName = "parsedTree.json";
+    // Create the file containing the parsed element and the variables declaration
+    try {
+        File file = new File(parseTreeFileName);
+        file.createNewFile();
+    } catch (IOException e) {
+        System.out.println("An error occurred.");
+        e.printStackTrace();
+    }
+    for(String filename : args){
+        // initialize the symbol factory
+        ComplexSymbolFactory csf = new ComplexSymbolFactory();
+        // create a buffering scanner wrapper
+        ScannerBuffer lexer = new ScannerBuffer(new Lexer(new BufferedReader(new FileReader(filename)),csf));
+        // start parsing
+        Parser p = new Parser(lexer,csf);
+        p.parse();
+        Compiler comp = new Compiler(parseTreeFileName);
+        comp.compile();
+    }
+  }
+:};
+
+terminal LPAR, RPAR, PLUS, MOINS, MULT, ASSIGN, SEMI, DIV, NEWLINE, PRINT, IF, LBAR, RBAR, BOOL, COMP, BINOP, BINOPNEG, WHILE, 
+         ELSE, TYPE, EQUALCOMP, READ;
 terminal Integer INT;
 terminal Float FLOAT;
 terminal String ID, STRING;
-non terminal Integer term_form, increment;
-non terminal String res, String;
-non terminal expression, affect, StmtList, print;
+non terminal String String;
+non terminal expression, term_form, res, affect, StmtList, print, statement, if, else, comp, starter, read;
 
-precedence left PLUS;
-precedence left MULT;
 precedence left ASSIGN;
-precedence left MOINS;
-precedence left DIV;
+precedence left PLUS, MOINS;
+precedence left MULT, DIV;
+precedence left BINOP;
+precedence nonassoc EQUALCOMP;
+precedence left BINOPNEG;
+precedence left ELSE;
 
-start with StmtList;
+start with starter;
 
-StmtList ::= 
-| StmtList expression SEMI
+starter ::= StmtList:s {: 
+                            Write("[" + (String)s + "]");
+                            System.out.println("[" + s + "]");
+                        :}
 ;
 
-expression ::= res:r {: System.out.println("DEBUG : " + r); :}
-| affect:a {: System.out.println("DEBUG : " + a); :}
-| print:p {: System.out.print(p); :}
+StmtList ::= 
+| StmtList:stmt expression:e {: 
+                            if(stmt != null){
+                                RESULT = stmt + ", " + e;
+                            }else {
+                                RESULT = e;
+                            }
+                        :}
+;
+
+expression ::= res:r SEMI {: RESULT = r; :}
+| TYPE:type ID:id SEMI {: 
+                            RESULT = "{\"instruction\" : \"Decl\", \"type\" : \"" + type + "\", \"name\" : \"" + id + "\"}";
+                        :}
+| TYPE:type affect:a SEMI {:
+                                RESULT = "{\"instruction\" : \"Decl\", \"type\" : \"" + type + "\", \"value\" : " + a + "}";
+                            :}
+| affect:a SEMI {: 
+                    RESULT = a;
+                :}
+| print:p SEMI {: 
+                    RESULT = p;
+                :}
+| read:r SEMI {:
+                    RESULT = r;
+                :}
+| if:f {: 
+            RESULT = "{\"instruction\" : \"if\", " + f + "}";
+        :}
+| WHILE LPAR statement:s RPAR LBAR StmtList:stm RBAR {: 
+                                                    RESULT = "{\"instruction\" : \"while\", \"statement\" : [" + s + "], \"expression\" : [" + stm + "]}";
+                                                :}
 | NEWLINE
 ;
 
+// if
+if ::= IF LPAR statement:s RPAR LBAR StmtList:stm RBAR else:e {:
+                                                            RESULT = "\"statement\" : [" + s + "], \"expression\" : [" + stm +"], \"else\" : " + e;
+                                                            :}
+;
+
+else ::= {: RESULT = ""; :}
+| ELSE LBAR StmtList:s RBAR {: RESULT = "{\"instruction\" : \"else\", \"expression\" : [" + s + "]}"; :}
+| ELSE IF LPAR statement:s RPAR LBAR StmtList:stm RBAR else:e {: RESULT = "{\"instruction\" : \"else if\", \"statement\" : [" + s + "], \"expression\" : [" + stm + "]}, \"else\" : " + e; :}
+;
+
+// if statement
+statement ::= BOOL:c {: RESULT = "{\"instruction\" : \"BOOL\", \"value\" : \"" + c + "\"}"; :}
+| LPAR statement:s RPAR {: RESULT = s; :}
+| res:e1 comp:op res:e2 {: RESULT = "{\"instruction\" : \"statement\", \"left\" : " + e1 + ", \"op\" : \"" + op + "\", \"right\" : " + e2 + "}"; :}
+| res:id EQUALCOMP:op statement:c {: RESULT = "{\"instruction\" : \"statement\", \"left\" : " + id + ", \"op\" : \"" + op + "\", \"right\" : " + c + "}"; :}
+| BINOPNEG statement:c {: RESULT = "{\"instruction\" : \"statement\", \"not\" : \"!\", \"value\" : " + c + "}"; :}
+| statement:c1 BINOP:op statement:c2 {: RESULT = "{\"instruction\" : \"statement\", \"left\" : [" + c1 + "], \"op\" : \"" + op + "\", \"right\" : [" + c2 + "]}"; :}
+;
+
+comp ::= COMP:c {: RESULT = c; :}
+| EQUALCOMP:c {: RESULT = c; :}
+;
+
 //print
-print ::= PRINT LPAR String:s RPAR {: RESULT = s; :}
+print ::= PRINT LPAR String:s RPAR {: RESULT = "{\"instruction\" : \"print\", \"value\" : " + s + "}"; :}
+;
+
+//read
+read ::= READ LPAR String:s RPAR {: RESULT = "{\"instruction\" : \"read\", \"value\" : " + s + "}"; :}
 ;
 
 // String
-String ::= String:s1 PLUS String:s2 {: RESULT = s1 + s2; :}
-| String:s PLUS ID:id {: RESULT = s + getVariableValue(id); :}
-| STRING:s {: RESULT = s; :}
-| {: RESULT = ""; :}
+String ::= String:s1 PLUS String:s2 {:
+                                        RESULT = "{\"instruction\" : \"Concat\", \"left\" : " + s1 + ", \"right\" : " + s2 + "}";
+                                    :}
+| String:s PLUS ID:id {: 
+                        RESULT = "{\"instruction\" : \"Concat\", \"left\" : " + s + ", \"right\" : {\"instruction\" : \"VAR\", \"name\" : \"" + id + "\"}}"; 
+                        :}
+| STRING:s {: 
+                RESULT = "{\"instruction\" : \"STRING\", \"value\" : \"" + s + "\"}";
+            :}
 ;
 
 // Affectation
 affect ::=  ID:id ASSIGN res:r {:
-                            RESULT =  id + "=" + r;
-                            setVariableValue(id, new Integer(Integer.parseInt(r)));
+                            RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"=\", \"value\" : " + r + "}";
+                        :}
+| ID:id ASSIGN read:r {:
+                            RESULT = "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"value\" : " + r + "}";
                         :}
 | ID:id PLUS PLUS {: 
-                        Integer value = getVariableValue(id) + 1;
-                        RESULT = value;
-                        setVariableValue(id, value); 
+                        RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"++\"}";
                     :}
 | ID:id MOINS MOINS {: 
-                        Integer value = getVariableValue(id) - 1;
-                        RESULT = value;
-                        setVariableValue(id, value);
+                        RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"--\"}";
                     :}
 | ID:id PLUS ASSIGN res:r {: 
-                                Integer value = getVariableValue(id) + Integer.parseInt(r);
-                                RESULT = value;
-                                setVariableValue(id, value);
+                                RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"+=\", \"value\" : " + r + "}";
                             :}
 | ID:id MOINS ASSIGN res:r {: 
-                                Integer value = getVariableValue(id) - Integer.parseInt(r);
-                                RESULT = value;
-                                setVariableValue(id, value);
+                                RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"-=\", \"value\" : " + r + "}";
                             :}
 | ID:id MULT ASSIGN res:r {: 
-                                Integer value = getVariableValue(id) * Integer.parseInt(r);
-                                RESULT = value;
-                                setVariableValue(id, value);
+                                RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"*=\", \"value\" : " + r + "}";
                             :}
 | ID:id DIV ASSIGN res:r {: 
-                            Integer value = getVariableValue(id) / Integer.parseInt(r);
-                            RESULT = value;
-                            setVariableValue(id, value);
+                            RESULT =  "\"instruction\" : {\"affect\", \"name\" : \"" + id + "\", \"op\" : \"/=\", \"value\" : " + r + "}";
                         :}
 ;
 
 // Calcul Int
-res ::= term_form:t {: RESULT = t.toString(); :}
+res ::= term_form:t {: RESULT = t; :}
 ;
 
 // Calcul Int
 term_form ::=
-term_form:t1 PLUS term_form:t2 {: RESULT = t1+t2; :}
-| term_form:t1 MULT term_form:t2 {: RESULT = t1*t2; :}
-| term_form:t1 MOINS term_form:t2 {: RESULT = t1-t2; :}
-| term_form:t1 DIV term_form:t2 {: RESULT = t1/t2; :}
-| MOINS term_form:t1 {: RESULT = -t1; :}
+term_form:t1 PLUS term_form:t2 {:
+                                    RESULT = "{\"instruction\" : \"ADD\", \"left\" : " + t1 + ", \"right\" : " + t2 + "}"; 
+                                :}
+| term_form:t1 MULT term_form:t2 {:
+                                    RESULT = "{\"instruction\" : \"MULT\", \"left\" : " + t1 + ", \"right\" : " + t2 + "}"; 
+                                  :}
+| term_form:t1 MOINS term_form:t2 {: 
+                                        RESULT = "{\"instruction\" : \"MINUS\", \"left\" : " + t1 + ", \"right\" : " + t2 + "}";
+                                    :}
+| term_form:t1 DIV term_form:t2 {: 
+                                    RESULT = "{\"instruction\" : \"DIV\", \"left\" : " + t1 + ", \"right\" : " + t2 + "}"; 
+                                 :}
+| MOINS term_form:t1 {: 
+                        RESULT = "{\"instruction\" : \"NEG\", \"value\" : " + t1 + "}"; :}
 | LPAR term_form:t RPAR {: RESULT = t; :}
-| ID:id {: RESULT = getVariableValue(id); :}
-| INT:nb {: RESULT = nb; :}
+| ID:id {: 
+            RESULT = "{\"instruction\" : \"VAR\", \"name\" : \"" + id + "\"}"; 
+        :}
+| INT:nb {: 
+            RESULT = "{\"instruction\" : \"INT\", \"value\" : " + nb + "}";
+        :}
+| FLOAT:f {:
+            RESULT = "{\"instruction\" : \"FLOAT\", \"value\" : " + f + "}";
+        :}
 ;

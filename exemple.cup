@@ -81,8 +81,8 @@ parser code {:
         // start parsing
         Parser p = new Parser(lexer,csf);
         p.parse();
-        Compiler comp = new Compiler(parseTreeFileName);
-        comp.compile();
+        Compiler comp = new Compiler();
+        comp.compile(parseTreeFileName);
     }
   }
 :};
@@ -107,7 +107,6 @@ start with starter;
 
 starter ::= StmtList:s {: 
                             Write("[" + (String)s + "]");
-                            System.out.println("[" + s + "]");
                         :}
 ;
 
@@ -195,7 +194,13 @@ affect ::=  ID:id ASSIGN res:r {:
                             RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"=\", \"value\" : " + r + "}";
                         :}
 | ID:id ASSIGN read:r {:
-                            RESULT = "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"value\" : " + r + "}";
+                            RESULT = "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"=\", \"value\" : " + r + "}";
+                        :}
+| ID:id ASSIGN String:s {: 
+                            RESULT = "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"=\", \"value\" : " + s + "}";
+                        :}
+| ID:id ASSIGN BOOL:b {: 
+                            RESULT = "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"=\", \"value\" : " + b + "}";
                         :}
 | ID:id PLUS PLUS {: 
                         RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"++\"}";
@@ -213,7 +218,7 @@ affect ::=  ID:id ASSIGN res:r {:
                                 RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"*=\", \"value\" : " + r + "}";
                             :}
 | ID:id DIV ASSIGN res:r {: 
-                            RESULT =  "\"instruction\" : {\"affect\", \"name\" : \"" + id + "\", \"op\" : \"/=\", \"value\" : " + r + "}";
+                            RESULT =  "{\"instruction\" : \"affect\", \"name\" : \"" + id + "\", \"op\" : \"/=\", \"value\" : " + r + "}";
                         :}
 ;
 
